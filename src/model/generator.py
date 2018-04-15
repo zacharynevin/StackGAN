@@ -10,7 +10,7 @@ class StackGANGenerator():
 
         Params:
             num_classes  (int). The number of classes
-            data_format  (str='NCHW'): The data format to use for the image.
+            data_format  (str): The data format to use for the image.
         """
         self.num_classes = num_classes
         self.data_format = data_format
@@ -58,16 +58,14 @@ class StackGANGenerator():
                     output = self.join(output, z)
                     output = self.residual_block(output)
                     output = self.residual_block(output)
-                    output = self.upscale(output, [-1, 128, 128, 2*2])
-                    output = self.pixcnn_gated_nonlinearity(output, labels)
+                    output = self.upscale(output, [-1, 128, 128, 2])
                     G1     = tf.nn.tanh(self.upscale(output, [-1, 128, 128, 3]))
 
                 with tf.variable_scope('G2'):
                     output = self.join(output, z)
                     output = self.residual_block(output)
                     output = self.residual_block(output)
-                    output = self.upscale(output, [-1, 256, 256, 1*2])
-                    output = self.pixcnn_gated_nonlinearity(output, labels)
+                    output = self.upscale(output, [-1, 256, 256, 1])
                     G2     = tf.nn.tanh(self.upscale(output, [-1, 256, 256, 3]))
 
                 return G0, G1, G2
@@ -99,7 +97,7 @@ class StackGANGenerator():
 
     def residual_block(self, x):
         with tf.name_scope('residual_block'):
-            with slim.arg_scope([slim.conv2d], stride=1, weights_initializer=tf.truncated_normal_initializer(0.02), padding='same'):
+            with slim.arg_scope([slim.conv2d], stride=1, padding='same'):
                 Fx  = slim.conv2d(x, 64, kernel_size=3)
                 Fx  = slim.batch_norm(Fx)
                 Fx  = tf.nn.leaky_relu(Fx)

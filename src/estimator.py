@@ -1,9 +1,11 @@
 import tensorflow as tf
+from tensorflow.contrib import summary
 import numpy as np
-from dataset import get_dataset_iterator
-from model.discriminator import StackGANDiscriminator as Discriminator
-from model.generator import StackGANGenerator as Generator
-import model.losses as losses
+import os
+from src.dataset import get_dataset_iterator
+from src.model.discriminator import StackGANDiscriminator as Discriminator
+from src.model.generator import StackGANGenerator as Generator
+import src.model.losses as losses
 
 def model_fn(features, labels, mode, params):
     use_tpu      = params['use_tpu']
@@ -110,46 +112,55 @@ def model_fn(features, labels, mode, params):
             'G2': G2
         }
 
-        loss = G_loss + D0_loss + D1_loss + D2_loss
+        loss = L_D0 + L_D1 + L_D2 + L_G
 
-        host_call = (host_call_fn, [mode, params['log_dir'], G0, G1, G2, R0, R1, R2])
+        host_call = (host_call_fn, [mode,
+                                    params['log_dir'],
+                                    (G0, G1, G2, R0, R1, R2),
+                                    (L_G0, L_G1, L_G2, L_D0, L_D1, L_D2, L_G)])
 
-        eval_metrics = (metric_fn, [G_loss, D0_loss, D1_loss, D2_loss])
+        eval_metrics = (metric_fn, [L_D0, L_D1, L_D2, L_G])
 
-    return tf.estimator.TPUEstimatorSpec(mode,
-                                         predictions=predictions,
-                                         loss=loss,
-                                         host_call=host_call,
-                                         eval_metrics=eval_metrics,
-                                         train_op=train_op)
+    return tf.contrib.tpu.TPUEstimatorSpec(mode,
+                                           predictions=predictions,
+                                           loss=loss,
+                                           host_call=host_call,
+                                           eval_metrics=eval_metrics,
+                                           train_op=train_op)
 
-def host_call_fn(mode, log_dir, G0, G1, G2, R0, R1, R2):
-    with tf.summary.create_file_writer(log_dir).as_default():
-        with tf.summary.always_record_summaries():
-            mode = mode.lower()
+def host_call_fn(mode, log_dir, images, losses):
+    summary_dir = os.path.join(log_dir, mode) if mode == tf.estimator.ModeKeys.EVAL else log_dir
+
+    with summary.create_file_writer(summary_dir).as_default():
+        with summary.always_record_summaries():
             max_image_outputs = 10
 
-            with tf.name_scope('R0'):
-                tf.summary.image(mode, R0, max_outputs=max_image_outputs)
-            with tf.name_scope('R1'):
-                tf.summary.image(mode, R1, max_outputs=max_image_outputs)
-            with tf.name_scope('R2'):
-                tf.summary.image(mode, R2, max_outputs=max_image_outputs)
-            with tf.name_scope('G0'):
-                tf.summary.image(mode, G0, max_outputs=max_image_outputs)
-            with tf.name_scope('G1'):
-                tf.summary.image(mode, G1, max_outputs=max_image_outputs)
-            with tf.name_scope('G2'):
-                tf.summary.image(mode, G2, max_outputs=max_image_outputs)
+            G0, G1, G2, R0, R1, R2 = images
+            L_G0, L_G1, L_G2, L_D0, L_D1, L_D2, L_G = losses
 
-            return tf.summary.all_summary_ops()
+            summary.image('R0', R0, max_images=max_image_outputs)
+            summary.image('R1', R1, max_images=max_image_outputs)
+            summary.image('R2', R2, max_images=max_image_outputs)
+            summary.image('G0', G0, max_images=max_image_outputs)
+            summary.image('G1', G1, max_images=max_image_outputs)
+            summary.image('G2', G2, max_images=max_image_outputs)
+
+            with tf.name_scope('loss'):
+                summary.scalar('D0', L_D0)
+                summary.scalar('D1', L_D1)
+                summary.scalar('D2', L_D2)
+                summary.scalar('G0', L_G0)
+                summary.scalar('G1', L_G1)
+                summary.scalar('G2', L_G2)
+
+            return summary.all_summary_ops()
 
 def metric_fn(G_loss, D0_loss, D1_loss, D2_loss):
     return {
-        'G_avg_loss': tf.metrics.mean(G_loss),
-        'D0_avg_loss': tf.metrics.mean(D0_loss),
-        'D1_avg_loss': tf.metrics.mean(D1_loss),
-        'D2_avg_loss': tf.metrics.mean(D2_loss)
+        'loss/G_avg_loss': tf.metrics.mean(G_loss),
+        'loss/D0_avg_loss': tf.metrics.mean(D0_loss),
+        'loss/D1_avg_loss': tf.metrics.mean(D1_loss),
+        'loss/D2_avg_loss': tf.metrics.mean(D2_loss)
     }
 
 def predict_input_fn(params):
@@ -157,7 +168,7 @@ def predict_input_fn(params):
     num_classes = params['num_classes']
 
     z        = tf.random_normal([sample_size, z_dim])
-    label    = tf.random_uniform(shape=(), minval=0, maxval=num_classes-1, dtype=tf.int32)
+    label    = tf.random_uniform(shape=[sample_size], minval=0, maxval=num_classes-1, dtype=tf.int32)
     labels   = tf.one_hot(label, num_classes, dtype=tf.float32)
 
     return (z, label)
@@ -185,7 +196,7 @@ def get_dataset(params, mode):
     R0, R1, R2, R_labels = iterator.get_next()
 
     z        = tf.random_normal([batch_size, z_dim])
-    label    = tf.random_uniform(shape=(), minval=0, maxval=num_classes-1, dtype=tf.int32)
+    label    = tf.random_uniform(shape=[batch_size], minval=0, maxval=num_classes-1, dtype=tf.int32)
     G_labels = tf.one_hot(label, num_classes, dtype=tf.float32)
 
     features = {

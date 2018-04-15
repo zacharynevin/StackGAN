@@ -1,6 +1,6 @@
 # StackGAN
 
-Tensorflow implementation of the StackGAN++ outlined in this paper: [StackGAN++: Realistic Image Synthesis with Stacked Generative Adversarial Networks])https://arxiv.org/pdf/1710.10916.pdf).
+Tensorflow implementation of the StackGAN++ outlined in this paper: [StackGAN++: Realistic Image Synthesis with Stacked Generative Adversarial Networks](https://arxiv.org/pdf/1710.10916.pdf).
 
 This implementation uses the Estimator API, allowing you to train StackGAN++ models on novel datasets with minimal effort.
 

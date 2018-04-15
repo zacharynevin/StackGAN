@@ -5,6 +5,7 @@ flags = tf.app.flags
 flags.DEFINE_bool("train", False, "Run training [False].")
 flags.DEFINE_bool("predict", False, "Run prediction [False].")
 
+flags.DEFINE_bool("use_tpu", False, "Set to True to use TPUs [False].")
 flags.DEFINE_string("tpu_name", None, "The name of the TPU to use [None].")
 flags.DEFINE_integer("tpu_shards", 8, "Number of TPU shards [8].")
 flags.DEFINE_integer("tpu_iterations", 50, "Number of iterations per TPU training loop [50].")
@@ -27,5 +28,3 @@ config = flags.FLAGS
 
 if config.train and config.tpu_name:
     config.use_tpu = True
-else:
-    config.use_tpu = False
