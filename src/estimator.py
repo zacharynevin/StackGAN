@@ -145,7 +145,7 @@ def model_fn(features, labels, mode, params):
     return tf.contrib.tpu.TPUEstimatorSpec(mode,
                                            predictions=predictions,
                                            loss=loss,
-                                           # host_call=host_call,
+                                           host_call=host_call,
                                            eval_metrics=eval_metrics,
                                            train_op=train_op)
 
