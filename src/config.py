@@ -9,6 +9,7 @@ flags.DEFINE_integer("tpu_iterations", 50, "Number of iterations per TPU trainin
 flags.DEFINE_string("data_dir", "./data/dataset.tfrecords", "The data directory. Must point to a tfrecords file. Can be a google storage path (e.g. gs://my-bucket/my/path/file.tfrecords).")
 flags.DEFINE_string("log_dir", "./logs", "Directory to store logs. Can be a google storage path (e.g. gs://my-bucket/my/path).")
 
+flags.DEFINE_integer("buffer_size", 8*1024*1024, "The dataset buffer size. [8388608]")
 flags.DEFINE_integer("batch_size", 128, "The batch size. If using TPUs, this is the batch size per shard. [64]")
 flags.DEFINE_integer("z_dim", 128, "The z input dimension [128].")
 flags.DEFINE_integer("num_classes", 9, "The number of classes that exist in the training set [9].")

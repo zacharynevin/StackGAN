@@ -6,7 +6,7 @@ def get_dataset_iterator(data_dir,
                          batch_size,
                          num_classes,
                          data_format,
-                         buffer_size=8*1024*1024):
+                         buffer_size):
     """Construct a TF dataset from a remote source"""
     def transform(tfrecord_proto):
         return transform_tfrecord(tfrecord_proto,
@@ -65,7 +65,7 @@ def transform_tfrecord(tf_protobuf, num_classes, data_format):
     """
 
     features = {
-        "image": tf.FixedLenFeature((), tf.string, default_value=""),
+        "image": tf.FixedLenFeature((), tf.string),
         "height": tf.FixedLenFeature([], tf.int64),
         "width": tf.FixedLenFeature([], tf.int64),
         "label": tf.FixedLenFeature((), tf.int64)

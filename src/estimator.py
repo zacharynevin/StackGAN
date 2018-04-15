@@ -169,16 +169,18 @@ def train_input_fn(params):
     return get_dataset(params, 'train')
 
 def get_dataset(params, mode):
-    batch_size        = params['batch_size']
-    data_dir          = params['data_dir']
-    data_format       = params['data_format']
-    num_classes       = params['num_classes']
-    z_dim             = params['z_dim']
+    batch_size  = params['batch_size']
+    buffer_size = params['buffer_size']
+    data_dir    = params['data_dir']
+    data_format = params['data_format']
+    num_classes = params['num_classes']
+    z_dim       = params['z_dim']
 
     iterator = get_dataset_iterator(data_dir,
                                     batch_size,
                                     num_classes=num_classes,
-                                    data_format=data_format)
+                                    data_format=data_format,
+                                    buffer_size=buffer_size)
 
     R0, R1, R2, R_labels = iterator.get_next()
 

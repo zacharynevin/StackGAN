@@ -27,6 +27,7 @@ def main(_):
         eval_batch_size=batch_size,
         params={
           "data_dir": config.data_dir,
+          "buffer_size": config.buffer_size,
           "log_dir": config.log_dir,
           "data_format": "NCHW" if config.use_tpu else "NHWC",
           "z_dim": config.z_dim,
