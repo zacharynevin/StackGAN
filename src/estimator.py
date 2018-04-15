@@ -183,13 +183,18 @@ def metric_fn(G_loss, D0_loss, D1_loss, D2_loss):
         'loss/D2_avg_loss': tf.metrics.mean(D2_loss)
     }
 
-def predict_input_fn(params):
+def predict_input_fn(params, class_label=None):
     sample_size = params['batch_size']
     num_classes = params['num_classes']
 
-    z        = tf.random_normal([sample_size, z_dim])
-    label    = tf.random_uniform(shape=[sample_size], minval=0, maxval=num_classes-1, dtype=tf.int32)
-    labels   = tf.one_hot(label, num_classes, dtype=tf.float32)
+    z = tf.random_normal([sample_size, z_dim])
+
+    if class_label is None:
+        label = tf.random_uniform(shape=[sample_size], minval=0, maxval=num_classes-1, dtype=tf.int32)
+    else:
+        label = tf.ones([sample_size]) * class_label
+
+    labels = tf.one_hot(label, num_classes, dtype=tf.float32)
 
     return z, label
 

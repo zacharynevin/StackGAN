@@ -5,6 +5,8 @@ flags = tf.app.flags
 flags.DEFINE_bool("train", False, "Run training [False].")
 flags.DEFINE_bool("predict", False, "Run prediction [False].")
 
+flags.DEFINE_integer("predict_class", None, "The class to generate. If None, generate images from random classes [None]")
+
 flags.DEFINE_bool("use_tpu", False, "Set to True to use TPUs [False].")
 flags.DEFINE_string("tpu_name", None, "The name of the TPU to use [None].")
 flags.DEFINE_integer("tpu_shards", 8, "Number of TPU shards [8].")

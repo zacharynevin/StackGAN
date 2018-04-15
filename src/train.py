@@ -33,7 +33,7 @@ def main(_):
             "num_classes": config.num_classes,
             "D_lr": config.d_lr,
             "G_lr": config.g_lr,
-            "data_seed": config.data_shuffle_seed
+            "data_seed": config.data_shuffle_seed,
             "data_map_parallelism": config.data_map_parallelism
         },
         config=run_config
@@ -45,13 +45,13 @@ def main(_):
             max_steps=config.train_steps
         )
 
-        # est.evaluate(
-        #     input_fn=estimator.eval_input_fn,
-        #     steps=config.eval_steps
-        # )
+        est.evaluate(
+            input_fn=estimator.eval_input_fn,
+            steps=config.eval_steps
+        )
     elif config.predict:
         est.predict(
-            input_fn=estimator.predict_input_fn,
+            input_fn=lambda params: estimator.predict_input_fn(params, config.predict_class),
             predict_keys=['G2']
         )
 
