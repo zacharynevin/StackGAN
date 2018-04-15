@@ -28,7 +28,6 @@ def main(_):
             "use_tpu": config.use_tpu,
             "data_dir": config.data_dir,
             "buffer_size": config.buffer_size,
-            "log_dir": config.log_dir,
             "data_format": "NCHW" if config.use_tpu else "NHWC",
             "z_dim": config.z_dim,
             "num_classes": config.num_classes,

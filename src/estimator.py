@@ -116,7 +116,16 @@ def model_fn(features, labels, mode, params):
 
         loss = L_D0 + L_D1 + L_D2 + L_G
 
-        def host_call_fn(G0, G1, G2, R0, R1, R2):
+        def tpu_pad(scalar):
+            batch_size = params['batch_size']
+            scalar     = tf.expand_dims(scalar, 0)
+            scalar     = tf.pad(scalar, [[0, batch_size-1]])
+            return scalar
+
+        def tpu_depad(tensor):
+            return tf.squeeze(tf.slice(tensor, [0], [1]))
+
+        def host_call_fn(G0, G1, G2, R0, R1, R2, L_D0, L_D1, L_D2, L_G0, L_G1, L_G2, L_G):
             with summary.create_file_writer(config.log_dir).as_default():
                 with summary.always_record_summaries():
                     max_image_outputs = 10
@@ -128,17 +137,40 @@ def model_fn(features, labels, mode, params):
                     summary.image('G1', G1, max_images=max_image_outputs)
                     summary.image('G2', G2, max_images=max_image_outputs)
 
-                    # with tf.name_scope('loss'):
-                    #     summary.scalar('D0', L_D0)
-                    #     summary.scalar('D1', L_D1)
-                    #     summary.scalar('D2', L_D2)
-                    #     summary.scalar('G0', L_G0)
-                    #     summary.scalar('G1', L_G1)
-                    #     summary.scalar('G2', L_G2)
+                    L_D0 = tpu_depad(L_D0)
+                    L_D1 = tpu_depad(L_D1)
+                    L_D2 = tpu_depad(L_D2)
+                    L_G0 = tpu_depad(L_G0)
+                    L_G1 = tpu_depad(L_G1)
+                    L_G2 = tpu_depad(L_G2)
+                    L_G  = tpu_depad(L_G)
+
+                    with tf.name_scope('loss'):
+                        summary.scalar('D0', L_D0)
+                        summary.scalar('D1', L_D1)
+                        summary.scalar('D2', L_D2)
+                        summary.scalar('G0', L_G0)
+                        summary.scalar('G1', L_G1)
+                        summary.scalar('G2', L_G2)
+                        summary.scalar('G', L_G)
 
                     return summary.all_summary_ops()
 
-        host_call = (host_call_fn, [G0, G1, G2, R0, R1, R2])
+        host_call = (host_call_fn, [
+            G0,
+            G1,
+            G2,
+            R0,
+            R1,
+            R2,
+            tpu_pad(L_D0),
+            tpu_pad(L_D1),
+            tpu_pad(L_D2),
+            tpu_pad(L_G0),
+            tpu_pad(L_G1),
+            tpu_pad(L_G2),
+            tpu_pad(L_G)
+        ])
 
         eval_metrics = (metric_fn, [L_D0, L_D1, L_D2, L_G])
 
