@@ -26,27 +26,34 @@ def main(_):
         train_batch_size=batch_size,
         eval_batch_size=batch_size,
         params={
-          "data_dir": config.data_dir,
-          "buffer_size": config.buffer_size,
-          "log_dir": config.log_dir,
-          "data_format": "NCHW" if config.use_tpu else "NHWC",
-          "z_dim": config.z_dim,
-          "num_classes": config.num_classes,
-          "D_lr": config.d_lr,
-          "G_lr": config.g_lr
+            "use_tpu": config.use_tpu,
+            "data_dir": config.data_dir,
+            "buffer_size": config.buffer_size,
+            "log_dir": config.log_dir,
+            "data_format": "NCHW" if config.use_tpu else "NHWC",
+            "z_dim": config.z_dim,
+            "num_classes": config.num_classes,
+            "D_lr": config.d_lr,
+            "G_lr": config.g_lr
         },
         config=run_config
     )
 
-    estimator.train(
-        input_fn=estimator.train_input_fn,
-        max_steps=config.train_steps
-    )
+    if config.train:
+        estimator.train(
+            input_fn=estimator.train_input_fn,
+            max_steps=config.train_steps
+        )
 
-    estimator.evaluate(
-        input_fn=estimator.eval_input_fn,
-        steps=config.eval_steps
-    )
+        estimator.evaluate(
+            input_fn=estimator.eval_input_fn,
+            steps=config.eval_steps
+        )
+    elif config.predict:
+        estimator.predict(
+            input_fn=estimator.predict_input_fn,
+            predict_keys=['G2']
+        )
 
 if __name__ == '__main__':
     tf.app.run()

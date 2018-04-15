@@ -153,7 +153,7 @@ def metric_fn(G_loss, D0_loss, D1_loss, D2_loss):
     }
 
 def predict_input_fn(params):
-    sample_size = params['sample_size']
+    sample_size = params['batch_size']
     num_classes = params['num_classes']
 
     z        = tf.random_normal([sample_size, z_dim])
