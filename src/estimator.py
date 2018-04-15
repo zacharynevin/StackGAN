@@ -105,14 +105,7 @@ def model_fn(features, labels, mode, params):
                                               learning_rate=G_lr,
                                               var_list=G_vars,
                                               use_tpu=use_tpu)
-
-            train_op = tf.group(G_train, D2_train, D1_train, D0_train)
-
-        predictions = {
-            'G0': G0,
-            'G1': G1,
-            'G2': G2
-        }
+                train_op = tf.group(G_train, D2_train, D1_train, D0_train)
 
         loss = L_D0 + L_D1 + L_D2 + L_G
 
@@ -172,7 +165,8 @@ def model_fn(features, labels, mode, params):
             tpu_pad(L_G)
         ])
 
-        eval_metrics = (metric_fn, [L_D0, L_D1, L_D2, L_G])
+        if mode == tf.estimator.ModeKeys.EVAL:
+            eval_metrics = (metric_fn, [L_D0, L_D1, L_D2, L_G])
 
     return tf.contrib.tpu.TPUEstimatorSpec(mode,
                                            predictions=predictions,
@@ -197,7 +191,7 @@ def predict_input_fn(params):
     label    = tf.random_uniform(shape=[sample_size], minval=0, maxval=num_classes-1, dtype=tf.int32)
     labels   = tf.one_hot(label, num_classes, dtype=tf.float32)
 
-    return (z, label)
+    return z, label
 
 def eval_input_fn(params):
     return get_dataset(params, 'eval')

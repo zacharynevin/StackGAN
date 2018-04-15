@@ -15,7 +15,7 @@ def main(_):
         evaluation_master=tpu_grpc_url,
         model_dir=config.log_dir,
         session_config=tf.ConfigProto(allow_soft_placement=True),
-        tpu_config=tf.contrib.tpu.TPUConfig(config.tpu_iterations, config.tpu_shards)
+        tpu_config=tpu.TPUConfig(config.tpu_iterations, config.tpu_shards)
     )
 
     batch_size = config.batch_size * config.tpu_shards if config.use_tpu else config.batch_size
