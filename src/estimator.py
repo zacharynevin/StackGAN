@@ -3,6 +3,7 @@ from tensorflow.contrib import tpu
 from tensorflow.contrib import summary
 import numpy as np
 import os
+import src.config as config
 from src.dataset import get_dataset_iterator
 from src.model.discriminator import StackGANDiscriminator as Discriminator
 from src.model.generator import StackGANGenerator as Generator
@@ -115,9 +116,7 @@ def model_fn(features, labels, mode, params):
 
         loss = L_D0 + L_D1 + L_D2 + L_G
 
-        host_call = (host_call_fn, [mode,
-                                    params['log_dir'],
-                                    (G0, G1, G2, R0, R1, R2),
+        host_call = (host_call_fn, [(G0, G1, G2, R0, R1, R2),
                                     (L_G0, L_G1, L_G2, L_D0, L_D1, L_D2, L_G)])
 
         eval_metrics = (metric_fn, [L_D0, L_D1, L_D2, L_G])
@@ -129,10 +128,8 @@ def model_fn(features, labels, mode, params):
                                            eval_metrics=eval_metrics,
                                            train_op=train_op)
 
-def host_call_fn(mode, log_dir, images, losses):
-    summary_dir = os.path.join(log_dir, mode) if mode == tf.estimator.ModeKeys.EVAL else log_dir
-
-    with summary.create_file_writer(summary_dir).as_default():
+def host_call_fn(images, losses):
+    with summary.create_file_writer(config.log_dir).as_default():
         with summary.always_record_summaries():
             max_image_outputs = 10
 
