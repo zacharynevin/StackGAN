@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.contrib import tpu
 from tensorflow.contrib import summary
 import numpy as np
 import os
