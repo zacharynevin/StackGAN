@@ -138,7 +138,7 @@ def model_fn(features, labels, mode, params):
 
                     return summary.all_summary_ops()
 
-        host_call = (host_call_fn, [G0, G1, G2, R0, R1, R2, L_G0, L_G1, L_G2, L_D0, L_D1, L_D2, L_G])
+        host_call = (host_call_fn, [G0, G1, G2, R0, R1, R2])
 
         eval_metrics = (metric_fn, [L_D0, L_D1, L_D2, L_G])
 
