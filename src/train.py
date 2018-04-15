@@ -45,10 +45,10 @@ def main(_):
             max_steps=config.train_steps
         )
 
-        est.evaluate(
-            input_fn=estimator.eval_input_fn,
-            steps=config.eval_steps
-        )
+        # est.evaluate(
+        #     input_fn=estimator.eval_input_fn,
+        #     steps=1
+        # )
     elif config.predict:
         est.predict(
             input_fn=lambda params: estimator.predict_input_fn(params, config.predict_class),
