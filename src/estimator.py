@@ -174,23 +174,27 @@ def train_input_fn(params):
     return get_dataset(params, 'train')
 
 def get_dataset(params, mode):
-    batch_size  = params['batch_size']
-    buffer_size = params['buffer_size']
-    data_dir    = params['data_dir']
-    data_format = params['data_format']
-    num_classes = params['num_classes']
-    z_dim       = params['z_dim']
+    batch_size         = params['batch_size']
+    buffer_size        = params['buffer_size']
+    data_dir           = params['data_dir']
+    data_format        = params['data_format']
+    num_classes        = params['num_classes']
+    z_dim              = params['z_dim']
+    seed               = params['data_seed']
+    num_parallel_calls = params['data_map_parallelism']
 
     iterator = get_dataset_iterator(data_dir,
                                     batch_size,
                                     num_classes=num_classes,
                                     data_format=data_format,
-                                    buffer_size=buffer_size)
+                                    buffer_size=buffer_size,
+                                    shuffle_seed=seed,
+                                    num_parallel_calls=num_parallel_calls)
 
     R0, R1, R2, R_labels = iterator.get_next()
 
-    z        = tf.random_normal([batch_size, z_dim])
-    label    = tf.random_uniform(shape=[batch_size], minval=0, maxval=num_classes-1, dtype=tf.int32)
+    z        = tf.random_normal([batch_size, z_dim], seed=seed)
+    label    = tf.random_uniform(shape=[batch_size], seed=seed, minval=0, maxval=num_classes-1, dtype=tf.int32)
     G_labels = tf.one_hot(label, num_classes, dtype=tf.float32)
 
     features = {

@@ -6,7 +6,9 @@ def get_dataset_iterator(data_dir,
                          batch_size,
                          num_classes,
                          data_format,
-                         buffer_size):
+                         buffer_size,
+                         shuffle_seed,
+                         num_parallel_calls):
     """Construct a TF dataset from a remote source"""
     def transform(tfrecord_proto):
         return transform_tfrecord(tfrecord_proto,
@@ -14,8 +16,8 @@ def get_dataset_iterator(data_dir,
                                   data_format=data_format)
 
     tf_dataset  = tf.data.TFRecordDataset(data_dir)
-    tf_dataset  = tf_dataset.map(transform)
-    tf_dataset  = tf_dataset.shuffle(buffer_size=buffer_size)
+    tf_dataset  = tf_dataset.map(transform, num_parallel_calls=num_parallel_calls)
+    tf_dataset  = tf_dataset.shuffle(seed=shuffle_seed, buffer_size=buffer_size)
     tf_dataset  = tf_dataset.repeat()
     tf_dataset  = tf_dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
     tf_iterator = tf_dataset.make_one_shot_iterator()

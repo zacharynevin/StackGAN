@@ -17,6 +17,8 @@ flags.DEFINE_integer("buffer_size", 8*1024*1024, "The dataset buffer size. [8388
 flags.DEFINE_integer("batch_size", 128, "The batch size. If using TPUs, this is the batch size per shard. [64]")
 flags.DEFINE_integer("z_dim", 128, "The z input dimension [128].")
 flags.DEFINE_integer("num_classes", 9, "The number of classes that exist in the training set [9].")
+flags.DEFINE_integer("data_shuffle_seed", 12345, "The seed to use when shuffling the database [12345].")
+flags.DEFINE_integer("data_map_parallelism", 10, "The number of parallel calls to use in dataset.map [10].")
 
 flags.DEFINE_float("g_lr", 0.0002, "The generator learning rate [2e-4].")
 flags.DEFINE_float("d_lr", 0.0002, "The discriminator learning rate [2e-4].")

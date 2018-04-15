@@ -33,7 +33,9 @@ def main(_):
             "z_dim": config.z_dim,
             "num_classes": config.num_classes,
             "D_lr": config.d_lr,
-            "G_lr": config.g_lr
+            "G_lr": config.g_lr,
+            "data_seed": config.data_shuffle_seed
+            "data_map_parallelism": config.data_map_parallelism
         },
         config=run_config
     )
