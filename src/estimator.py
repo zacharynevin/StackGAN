@@ -3,7 +3,7 @@ from tensorflow.contrib import tpu
 from tensorflow.contrib import summary
 import numpy as np
 import os
-import src.config as config
+from src.config import config
 from src.dataset import get_dataset_iterator
 from src.model.discriminator import StackGANDiscriminator as Discriminator
 from src.model.generator import StackGANGenerator as Generator
