@@ -39,10 +39,9 @@ for f in os.listdir("./raw_images"):
   example = tf.train.Example(
     features = tf.train.Features(
       feature = {
-        "image": _bytes_feature(img.tostring()),
-        "height": _int64_feature(height),
-        "width": _int64_feature(width),
-        "channels": _int64_feature(channels),
+        "image_64": _bytes_feature(resize(img, 64).tostring()),
+        "image_128": _bytes_feature(resize(img, 128).tostring()),
+        "image_256": _bytes_feature(resize(img, 256).tostring()),
         "label": _int64_feature(class_index)
       }
     )
@@ -52,6 +51,8 @@ for f in os.listdir("./raw_images"):
 ```
 
 Once this `.tfrecords` file is created, you can immediately use it to train your model from your local machine. Alternatively, you can upload it to a gcloud storage bucket that you own and reference it from there, which is advantageous if you are using AWS or Gcloud VMs and don't want to worry about a time-consuming process of downloading the dataset first.
+
+*NOTE*: Using a google storage location for your dataset and log files is a requirement when using TPUs.
 
 #### Run Training
 
