@@ -4,6 +4,7 @@ flags = tf.app.flags
 
 flags.DEFINE_bool("train", False, "Run training [False].")
 flags.DEFINE_bool("predict", False, "Run prediction [False].")
+flags.DEFINE_bool("eval", False, "Run evaluation [False].")
 
 flags.DEFINE_integer("predict_class", None, "The class to generate. If None, generate images from random classes [None]")
 

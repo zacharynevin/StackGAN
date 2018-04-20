@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.contrib import tpu
+from tensorflow.contrib.tpu import TPUEstimator as Estimator
 from tensorflow.contrib.cluster_resolver import TPUClusterResolver
 from src.config import config
 import src.estimator as estimator
@@ -19,7 +20,7 @@ def main(_):
     )
 
     batch_size = config.batch_size * config.tpu_shards if config.use_tpu else config.batch_size
-    est = tpu.TPUEstimator(
+    est = Estimator(
         model_fn=estimator.model_fn,
         use_tpu=config.use_tpu,
         train_batch_size=batch_size,
@@ -44,11 +45,11 @@ def main(_):
             input_fn=estimator.train_input_fn,
             max_steps=config.train_steps
         )
-
-        # est.evaluate(
-        #     input_fn=estimator.eval_input_fn,
-        #     steps=1
-        # )
+    if config.eval:
+        est.evaluate(
+            input_fn=estimator.eval_input_fn,
+            steps=config.eval_steps
+        )
     elif config.predict:
         est.predict(
             input_fn=lambda params: estimator.predict_input_fn(params, config.predict_class),

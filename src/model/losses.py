@@ -12,6 +12,11 @@ def D_loss(D_R_uncond, D_R_cond, R_labels, L_G):
     L_D += -L_G
     return 0.5*L_D
 
+def kl_loss(mu, log_sigma):
+    with tf.name_scope('kl_divergence'):
+        loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mu))
+        return tf.reduce_mean(loss)
+
 def colour_consistency_regularization(G1, G0):
     with tf.name_scope('cc_regularization'):
         lambda_1 = 1.0

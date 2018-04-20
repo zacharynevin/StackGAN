@@ -23,31 +23,33 @@ def get_dataset_iterator(data_dir,
     tf_iterator = tf_dataset.make_one_shot_iterator()
     return tf_iterator
 
-def decode_image(image_buff, height, width):
+def decode_image(img, dim, data_format):
     """
     Take a raw image byte string and decode to an image
 
     Params:
-        image_buff (str): Image byte string
-        height (int): The original image height
-        width (int): The original image width
+        img (str): Image byte string
+        dim (int): The width and height of the image.
+        data_format (str): The data format for the image
 
     Return:
-        Tensor[NCHW | NHCW]: A tensor of shape representing the RGB image.
+        Tensor[HCW]: A tensor of shape representing the RGB image.
     """
-    image = tf.decode_raw(image_buff, out_type=tf.uint8)
-    image = tf.reshape(image, tf.stack([height, width, 3], axis=0))
-    image = tf.reverse(image, [-1]) # BGR to RGB
-    return image
+    img = tf.decode_raw(img, out_type=tf.uint8)
+    img = tf.reshape(img, tf.stack([dim, dim, 3], axis=0))
+    img = tf.reverse(img, [-1]) # BGR to RGB
+    img = transform_image(img, data_format)
+    return img
 
-def resize_and_convert_image(image, dims, data_format):
-    image = tf.expand_dims(image, 0)
-    image = tf.image.resize_nearest_neighbor(image, dims)
+def transform_image(img, data_format):
+    img = tf.image.convert_image_dtype(img, tf.float32)
+
+    # apply random crop
+
     if data_format == 'NCHW':
-        image = tf.transpose(image, [0, 3, 1, 2])
-    image = tf.squeeze(image)
-    image = tf.image.convert_image_dtype(image, tf.float32)
-    return image
+        img = tf.transpose(img, [3, 1, 2])
+
+    return img
 
 def decode_class(label, num_classes):
     return tf.one_hot(label, num_classes, dtype=tf.float32)
@@ -66,16 +68,16 @@ def transform_tfrecord(tf_protobuf, num_classes, data_format):
     """
 
     features = {
-        "image": tf.FixedLenFeature((), tf.string),
-        "height": tf.FixedLenFeature([], tf.int64),
-        "width": tf.FixedLenFeature([], tf.int64),
+        "image_64": tf.FixedLenFeature((), tf.string),
+        "image_128": tf.FixedLenFeature((), tf.string),
+        "image_256": tf.FixedLenFeature((), tf.string),
         "label": tf.FixedLenFeature((), tf.int64)
     }
     parsed_features = tf.parse_single_example(tf_protobuf, features)
 
-    decoded_image = decode_image(parsed_features["image"],
-                                 height=parsed_features["height"],
-                                 width=parsed_features["width"])
+    img_64  = decode_image(parsed_features["image_64"], 64, data_format=data_format)
+    img_128 = decode_image(parsed_features["image_128"], 128, data_format=data_format)
+    img_256 = decode_image(parsed_features["image_256"], 256, data_format=data_format)
 
     image_64  = resize_and_convert_image(decoded_image, [64, 64], data_format=data_format)
     image_128 = resize_and_convert_image(decoded_image, [128, 128], data_format=data_format)

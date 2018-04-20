@@ -1,5 +1,7 @@
 import tensorflow as tf
 from tensorflow.contrib import tpu
+from tensorflow.contrib.tpu import TPUEstimatorSpec as EstimatorSpec
+from tensorflow.estimator import ModeKeys
 from tensorflow.contrib import summary
 import numpy as np
 import os
@@ -25,7 +27,7 @@ def model_fn(features, labels, mode, params):
     generator      = Generator(num_classes, data_format)
     discriminator  = Discriminator(num_classes, data_format)
 
-    if mode == tf.estimator.ModeKeys.PREDICT:
+    if mode == ModeKeys.PREDICT:
         G0, G1, G2 = generator(features, labels)
 
         predictions = {
@@ -33,7 +35,7 @@ def model_fn(features, labels, mode, params):
             'G1': G1,
             'G2': G2
         }
-    elif mode == tf.estimator.ModeKeys.TRAIN or mode == tf.estimator.ModeKeys.EVAL:
+    elif mode == ModeKeys.TRAIN or mode == ModeKeys.EVAL:
         R0       = features['R0']
         R1       = features['R1']
         R2       = features['R2']
@@ -42,10 +44,10 @@ def model_fn(features, labels, mode, params):
         G_labels = labels['G']
 
         global_step    = tf.train.get_or_create_global_step()
-        G_global_step  = tf.Variable(0, dtype=tf.int32, trainable=False, name='G_global_step')
-        D0_global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name ='D0_global_step')
-        D1_global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name ='D1_global_step')
-        D2_global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name='D2_global_step')
+        G_global_step  = tf.Variable(0, dtype=tf.int64, trainable=False, name='G_global_step')
+        D0_global_step = tf.Variable(0, dtype=tf.int64, trainable=False, name='D0_global_step')
+        D1_global_step = tf.Variable(0, dtype=tf.int64, trainable=False, name='D1_global_step')
+        D2_global_step = tf.Variable(0, dtype=tf.int64, trainable=False, name='D2_global_step')
 
         G0, G1, G2 = generator(z, G_labels)
 
@@ -57,31 +59,40 @@ def model_fn(features, labels, mode, params):
         D_G1_uncond, D_G1_cond, \
         D_G2_uncond, D_G2_cond = discriminator(G0, G1, G2, G_labels)
 
-        with tf.variable_scope('losses'):
-            with tf.variable_scope('G0'):
-                L_G0 = losses.G_loss(D_G0_uncond, D_G0_cond, G_labels)
+        op = tf.group(
+            tf.assign_add(global_step, 1),
+            tf.assign_add(G_global_step, 1),
+            tf.assign_add(D0_global_step, 1),
+            tf.assign_add(D1_global_step, 1),
+            tf.assign_add(D2_global_step, 1)
+        ) if mode == ModeKeys.EVAL else tf.no_op()
 
-            with tf.variable_scope('G1'):
-                L_G1  = losses.G_loss(D_G1_uncond, D_G1_cond, G_labels)
-                L_G1 += losses.colour_consistency_regularization(G1, G0)
+        with tf.control_dependencies([op]):
+            with tf.variable_scope('losses'):
+                with tf.variable_scope('G0'):
+                    L_G0 = losses.G_loss(D_G0_uncond, D_G0_cond, G_labels)
 
-            with tf.variable_scope('G2'):
-                L_G2  = losses.G_loss(D_G2_uncond, D_G2_cond, G_labels)
-                L_G2 += losses.colour_consistency_regularization(G2, G1)
+                with tf.variable_scope('G1'):
+                    L_G1  = losses.G_loss(D_G1_uncond, D_G1_cond, G_labels)
+                    L_G1 += losses.colour_consistency_regularization(G1, G0)
 
-            with tf.variable_scope('D0'):
-                L_D0 = losses.D_loss(D_R0_uncond, D_R0_cond, R_labels, L_G0)
+                with tf.variable_scope('G2'):
+                    L_G2  = losses.G_loss(D_G2_uncond, D_G2_cond, G_labels)
+                    L_G2 += losses.colour_consistency_regularization(G2, G1)
 
-            with tf.variable_scope('D1'):
-                L_D1 = losses.D_loss(D_R1_uncond, D_R1_cond, R_labels, L_G1)
+                with tf.variable_scope('D0'):
+                    L_D0 = losses.D_loss(D_R0_uncond, D_R0_cond, R_labels, L_G0)
 
-            with tf.variable_scope('D2'):
-                L_D2 = losses.D_loss(D_R2_uncond, D_R2_cond, R_labels, L_G2)
+                with tf.variable_scope('D1'):
+                    L_D1 = losses.D_loss(D_R1_uncond, D_R1_cond, R_labels, L_G1)
 
-            with tf.variable_scope('G'):
-                L_G  = L_G0 + L_G1 + L_G2
+                with tf.variable_scope('D2'):
+                    L_D2 = losses.D_loss(D_R2_uncond, D_R2_cond, R_labels, L_G2)
 
-        if mode == tf.estimator.ModeKeys.TRAIN:
+                with tf.variable_scope('G'):
+                    L_G  = L_G0 + L_G1 + L_G2
+
+        if mode == ModeKeys.TRAIN:
             with tf.variable_scope('optimizers'):
                 trainable_vars = tf.trainable_variables()
                 G_vars  = [var for var in trainable_vars if 'generator' in var.name]
@@ -116,41 +127,39 @@ def model_fn(features, labels, mode, params):
                                               var_list=G_vars,
                                               use_tpu=use_tpu)
 
-                with tf.control_dependencies([tf.assign_add(global_step, 1)]):
-                    train_op = tf.group(G_train, D2_train, D1_train, D0_train)
+                train_op = tf.group(G_train, D2_train, D1_train, D0_train)
 
-        loss = L_D0 + L_D1 + L_D2 + L_G
+                with tf.control_dependencies([train_op]):
+                    tf.assign_add(global_step, 1)
 
-        if mode == tf.estimator.ModeKeys.TRAIN:
-            host_call = (host_call_fn(mode), [
-                G0,
-                G1,
-                G2,
-                R0,
-                R1,
-                R2,
-                tpu_pad(L_D0),
-                tpu_pad(L_D1),
-                tpu_pad(L_D2),
-                tpu_pad(L_G0),
-                tpu_pad(L_G1),
-                tpu_pad(L_G2),
-                tpu_pad(L_G),
-                tpu_pad(D0_global_step),
-                tpu_pad(D1_global_step),
-                tpu_pad(D2_global_step),
-                tpu_pad(G_global_step)
-            ])
+        loss = L_G
 
-        if mode == tf.estimator.ModeKeys.EVAL:
-            eval_metrics = (metric_fn, [L_G, L_G0, L_G1, L_G2, L_D0, L_D1, L_D2])
+        host_call = (host_call_fn(mode), [
+            G0,
+            G1,
+            G2,
+            R0,
+            R1,
+            R2,
+            tpu_pad(L_D0),
+            tpu_pad(L_D1),
+            tpu_pad(L_D2),
+            tpu_pad(L_G0),
+            tpu_pad(L_G1),
+            tpu_pad(L_G2),
+            tpu_pad(L_G),
+            tpu_pad(D0_global_step),
+            tpu_pad(D1_global_step),
+            tpu_pad(D2_global_step),
+            tpu_pad(G_global_step)
+        ])
 
-    return tf.contrib.tpu.TPUEstimatorSpec(mode,
-                                           predictions=predictions,
-                                           loss=loss,
-                                           host_call=host_call,
-                                           eval_metrics=eval_metrics,
-                                           train_op=train_op)
+    return EstimatorSpec(mode,
+                         predictions=predictions,
+                         loss=loss,
+                         host_call=host_call,
+                         eval_metrics=eval_metrics,
+                         train_op=train_op)
 
 def tpu_pad(scalar):
     return tf.reshape(scalar, [1])
@@ -162,16 +171,20 @@ def tpu_depad(tensor, dtype=None):
     return tensor
 
 def host_call_fn(mode):
+    """
+    This is a hack for getting multiple losses to appear in Tensorboard.
+    It also gives us the ability to write summaries even when using TPUs.
+    """
     def summary_fn(G0, G1, G2, R0, R1, R2, L_D0, L_D1, L_D2, L_G0, L_G1, L_G2, L_G,
                      D0_global_step, D1_global_step, D2_global_step, G_global_step):
         with summary.create_file_writer(os.path.join(config.log_dir, mode)).as_default():
             with summary.always_record_summaries():
                 max_image_outputs = 10
 
-                D0_global_step = tpu_depad(D0_global_step, tf.int64)
-                D1_global_step = tpu_depad(D1_global_step, tf.int64)
-                D2_global_step = tpu_depad(D2_global_step, tf.int64)
-                G_global_step  = tpu_depad(G_global_step, tf.int64)
+                D0_global_step = tpu_depad(D0_global_step)
+                D1_global_step = tpu_depad(D1_global_step)
+                D2_global_step = tpu_depad(D2_global_step)
+                G_global_step  = tpu_depad(G_global_step)
                 L_D0           = tpu_depad(L_D0)
                 L_D1           = tpu_depad(L_D1)
                 L_D2           = tpu_depad(L_D2)
@@ -187,7 +200,7 @@ def host_call_fn(mode):
                 summary.image('G1', G1, max_images=max_image_outputs, step=G_global_step)
                 summary.image('G2', G2, max_images=max_image_outputs, step=G_global_step)
 
-                with tf.name_scope('loss'):
+                with tf.name_scope('losses'):
                     summary.scalar('D0', L_D0, step=D0_global_step)
                     summary.scalar('D1', L_D1, step=D1_global_step)
                     summary.scalar('D2', L_D2, step=D2_global_step)
@@ -199,17 +212,6 @@ def host_call_fn(mode):
                 return summary.all_summary_ops()
 
     return summary_fn
-
-def metric_fn(G_loss, G0_loss, G1_loss, G2_loss, D0_loss, D1_loss, D2_loss):
-    return {
-        'loss/G': tf.metrics.mean(G_loss),
-        'loss/G0': tf.metrics.mean(G0_loss),
-        'loss/G1': tf.metrics.mean(G1_loss),
-        'loss/G2': tf.metrics.mean(G2_loss),
-        'loss/D0': tf.metrics.mean(D0_loss),
-        'loss/D1': tf.metrics.mean(D1_loss),
-        'loss/D2': tf.metrics.mean(D2_loss)
-    }
 
 def predict_input_fn(params, class_label=None):
     sample_size = params['batch_size']

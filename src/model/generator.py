@@ -2,6 +2,7 @@ import math
 import tensorflow as tf
 import numpy as np
 import tensorflow.contrib.slim as slim
+from tensorflow.python.ops import variable_scope
 
 class StackGANGenerator():
     def __init__(self, num_classes, data_format):
@@ -12,8 +13,8 @@ class StackGANGenerator():
             num_classes  (int). The number of classes
             data_format  (str): The data format to use for the image.
         """
-        self.num_classes = num_classes
-        self.data_format = data_format
+        self.num_classes    = num_classes
+        self.data_format    = data_format
 
     def __call__(self, z, labels):
         """
@@ -159,10 +160,10 @@ class StackGANGenerator():
             condition_tensor = self.generate_condition(input_tensor, labels, biases)
 
             if self.data_format == 'NHWC':
-                even_input     = input_tensor[:,:,:,::2]
-                even_condition = condition_tensor[:,:,:,::2]
-                odd_input      = input_tensor[:,:,:,1::2]
-                odd_condition  = condition_tensor[:,:,:,1::2]
+                even_input     = input_tensor[...,::2]
+                even_condition = condition_tensor[...,::2]
+                odd_input      = input_tensor[...,1::2]
+                odd_condition  = condition_tensor[...,1::2]
             else:
                 even_input     = input_tensor[:,::2]
                 even_condition = condition_tensor[:,::2]
@@ -174,6 +175,19 @@ class StackGANGenerator():
 
             return tf.sigmoid(even_tensor) * tf.tanh(odd_tensor)
 
+    def gru(self, input_tensor):
+        with tf.name_scope('gru'):
+            if self.data_format == 'NHWC':
+                num_channels = input_tensor.get_shape().as_list()[-1]
+                num_channels = int(num_channels/2)
+
+                return input_tensor[...,:num_channels] * tf.sigmoid(input_tensor[...,num_channels:])
+            else:
+                num_channels = input_tensor.get_shape().as_list()[1]
+                num_channels = int(num_channels/2)
+
+                return input_tensor[:,:num_channels] * tf.sigmoid(input_tensor[:,num_channels:])
+
     def generate_condition(self, input_tensor, labels, biases):
         with tf.name_scope('condition'):
             flat_shape = int(np.prod(input_tensor.get_shape()[1:]))
@@ -182,4 +196,5 @@ class StackGANGenerator():
             else:
                 output = slim.fully_connected(labels, flat_shape, activation_fn=None, biases_initializer=None)
             output = tf.reshape(output, tf.shape(input_tensor))
+
             return output
