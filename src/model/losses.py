@@ -1,21 +1,40 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
-def G_loss(D_G_uncond, D_G_cond, G_labels):
-    L_G  = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_G_uncond, labels=tf.ones_like(D_G_uncond)))
-    L_G += tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_G_cond, labels=G_labels))
-    return 0.5*L_G
+def G_loss(G_logits):
+    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=G_logits, labels=tf.ones_like(G_logits)))
 
-def D_loss(D_R_uncond, D_R_cond, R_labels, L_G):
-    L_D  = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_R_uncond, labels=tf.ones_like(D_R_uncond)))
-    L_D += tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_R_cond, labels=R_labels))
-    L_D += -L_G
-    return 0.5*L_D
+def D_loss(D_logits, G_logits):
+    return tf.reduce_mean(
+        tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logits, labels=tf.ones_like(D_logits))
+        +tf.nn.sigmoid_cross_entropy_with_logits(logits=G_logits, labels=tf.ones_like(G_logits))
+    )
 
-def kl_loss(mu, log_sigma):
-    with tf.name_scope('kl_divergence'):
-        loss = -log_sigma + .5 * (-1 + tf.exp(2. * log_sigma) + tf.square(mu))
-        return tf.reduce_mean(loss)
+def interpolates(real_batch, fake_batch):
+    with tf.variable_scope('interpolates'):
+        real_batch = slim.flatten(real_batch)
+        fake_batch = slim.flatten(fake_batch)
+
+        alpha = tf.random_uniform([tf.shape(real_batch)[0], 1], minval=0., maxval=1.)
+
+        differences  = fake_batch - real_batch
+        return real_batch + (alpha*differences)
+
+def lambda_gradient_penalty(logits, diff):
+    with tf.variable_scope('lambda_gradient_penalty'):
+        gradients = tf.gradients(logits, [diff])[0]
+        slopes    = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
+        gradient_penalty = tf.reduce_mean((slopes-1.)**2)
+
+        return 10*gradient_penalty
+
+def wasserstein(real_batch, fake_batch, discrim_func, discrim_scope):
+    with tf.name_scope('wasserstein_loss'):
+        diff = interpolates(real_batch, fake_batch)
+        diff_reshaped = tf.reshape(diff, tf.shape(real_batch))
+        interp_logits, _ = discrim_func(diff_reshaped, discrim_scope)
+
+        return lambda_gradient_penalty(interp_logits, diff)
 
 def colour_consistency_regularization(G1, G0):
     with tf.name_scope('cc_regularization'):

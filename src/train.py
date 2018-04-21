@@ -31,7 +31,6 @@ def main(_):
             "buffer_size": config.buffer_size,
             "data_format": "NCHW" if config.use_tpu else "NHWC",
             "z_dim": config.z_dim,
-            "num_classes": config.num_classes,
             "D_lr": config.d_lr,
             "G_lr": config.g_lr,
             "data_seed": config.data_shuffle_seed,

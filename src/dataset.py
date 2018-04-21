@@ -4,7 +4,6 @@ import tensorflow.contrib.slim as slim
 
 def get_dataset_iterator(data_dir,
                          batch_size,
-                         num_classes,
                          data_format,
                          buffer_size,
                          shuffle_seed,
@@ -12,7 +11,6 @@ def get_dataset_iterator(data_dir,
     """Construct a TF dataset from a remote source"""
     def transform(tfrecord_proto):
         return transform_tfrecord(tfrecord_proto,
-                                  num_classes=num_classes,
                                   data_format=data_format)
 
     tf_dataset  = tf.data.TFRecordDataset(data_dir)
@@ -43,9 +41,6 @@ def decode_image(img, dim, data_format):
 
 def transform_image(img, data_format):
     img = tf.image.convert_image_dtype(img, tf.float32)
-
-    # apply random crop
-
     if data_format == 'NCHW':
         img = tf.transpose(img, [3, 1, 2])
 
@@ -54,7 +49,7 @@ def transform_image(img, data_format):
 def decode_class(label, num_classes):
     return tf.one_hot(label, num_classes, dtype=tf.float32)
 
-def transform_tfrecord(tf_protobuf, num_classes, data_format):
+def transform_tfrecord(tf_protobuf, data_format):
     """
     Decode the tfrecord protobuf into the image.
 
@@ -70,19 +65,12 @@ def transform_tfrecord(tf_protobuf, num_classes, data_format):
     features = {
         "image_64": tf.FixedLenFeature((), tf.string),
         "image_128": tf.FixedLenFeature((), tf.string),
-        "image_256": tf.FixedLenFeature((), tf.string),
-        "label": tf.FixedLenFeature((), tf.int64)
+        "image_256": tf.FixedLenFeature((), tf.string)
     }
     parsed_features = tf.parse_single_example(tf_protobuf, features)
 
-    img_64  = decode_image(parsed_features["image_64"], 64, data_format=data_format)
-    img_128 = decode_image(parsed_features["image_128"], 128, data_format=data_format)
-    img_256 = decode_image(parsed_features["image_256"], 256, data_format=data_format)
+    image_64  = decode_image(parsed_features["image_64"], 64, data_format=data_format)
+    image_128 = decode_image(parsed_features["image_128"], 128, data_format=data_format)
+    image_256 = decode_image(parsed_features["image_256"], 256, data_format=data_format)
 
-    image_64  = resize_and_convert_image(decoded_image, [64, 64], data_format=data_format)
-    image_128 = resize_and_convert_image(decoded_image, [128, 128], data_format=data_format)
-    image_256 = resize_and_convert_image(decoded_image, [256, 256], data_format=data_format)
-
-    decoded_class = decode_class(parsed_features["label"], num_classes)
-
-    return image_64, image_128, image_256, decoded_class
+    return image_64, image_128, image_256

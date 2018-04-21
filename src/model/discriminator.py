@@ -4,88 +4,81 @@ import numpy as np
 import tensorflow.contrib.slim as slim
 
 class StackGANDiscriminator():
-    def __init__(self, num_classes, data_format):
+    def __init__(self, data_format):
         """
         Initialize StackGAN++ Discriminator
 
         Params:
-            num_classes  (int): The number of classes.
             data_format  (str): The data format to use for the image.
         """
-        self.num_classes = num_classes
         self.data_format = data_format
 
-    def __call__(self, Im0, Im1, Im2, labels):
-        """
-        Build StackGAN++ Discriminator graph.
+    def D0(self, Im0, scope=None):
+        with slim.arg_scope([slim.conv2d, slim.batch_norm], data_format=self.data_format):
+            with tf.variable_scope(scope or 'discriminator/D0', reuse=tf.AUTO_REUSE) as D0_scope:
+                output = self.encode_x16(Im0)
 
-        Params:
-            input_tensor (Tensor[NCHW | NHWC]). An image tensor tensor representing the class label.
+                logits = self.logits(output)
 
-        Returns:
-            Tensor[None]: A 1-D tensor representing the probability (between 0 and 1) that each image in the batch is real.
-            Tensor[None, num_classes]: A tensor representing the classification for each image in the batch.
-        """
-        with tf.variable_scope('discriminator', reuse=tf.AUTO_REUSE):
-            with slim.arg_scope([slim.conv2d, slim.batch_norm], data_format=self.data_format):
-                with tf.variable_scope('D0'):
-                    with tf.variable_scope('downsample'):
-                        # 64x64x3 -> 4x4x8
-                        output = self.encode_x16(Im0)
-                        output = slim.conv2d(output, 8, kernel_size=3, stride=1, padding='same')
-                        output = slim.batch_norm(output)
-                        output = tf.nn.leaky_relu(output)
-                        output = slim.flatten(output)
+                return logits, D0_scope
 
-                    D0_uncond = self.uncond(output)
-                    D0_cond   = self.cond(output, labels)
+    def D1(self, Im1, scope=None):
+        with slim.arg_scope([slim.conv2d, slim.batch_norm], data_format=self.data_format):
+            with tf.variable_scope(scope or 'discriminator/D1', reuse=tf.AUTO_REUSE) as D1_scope:
+                output = self.encode_x16(Im1)
+                output = self.downsample(output, 16)
+                output = self.conv3x3(output, 8)
 
-                with tf.variable_scope('D1'):
-                    with tf.variable_scope('downsample'):
-                        # 128x128x3 -> 8x8x512
-                        output = self.encode_x16(Im1)
-                        # 8x8x512 -> 4x4x8
-                        output = slim.conv2d(output, 8, kernel_size=3, stride=2, padding='same')
-                        output = slim.batch_norm(output)
-                        output = tf.nn.leaky_relu(output)
-                        output = slim.flatten(output)
+                logits = self.logits(output)
 
-                    D1_uncond = self.uncond(output)
-                    D1_cond   = self.cond(output, labels)
+                return logits, D1_scope
 
-                with tf.variable_scope('D2'):
-                    with tf.variable_scope('downsample'):
-                        # 256x256x3 -> 16x16x512
-                        output = self.encode_x16(Im2)
-                        # 16x16x512 -> 8x8x16
-                        output = slim.conv2d(output, 16, kernel_size=3, stride=2, padding='same')
-                        output = slim.batch_norm(output)
-                        output = tf.nn.leaky_relu(output)
-                        output = slim.conv2d(output, 8, kernel_size=3, stride=2, padding='same')
-                        output = slim.batch_norm(output)
-                        output = tf.nn.leaky_relu(output)
-                        output = slim.flatten(output)
+    def D2(self, Im2, scope=None):
+        with slim.arg_scope([slim.conv2d, slim.batch_norm], data_format=self.data_format):
+            with tf.variable_scope(scope or 'discriminator/D2', reuse=tf.AUTO_REUSE) as D2_scope:
+                output = self.encode_x16(Im2)
+                output = self.downsample(output, 16)
+                output = self.downsample(output, 32)
+                output = self.conv3x3(output, 16)
+                output = self.conv3x3(output, 8)
 
-                    D2_uncond = self.uncond(output)
-                    D2_cond   = self.cond(output, labels)
+                logits = self.logits(output)
 
-        return D0_uncond, D0_cond, D1_uncond, D1_cond, D2_uncond, D2_cond
+                return logits, D2_scope
 
-    def uncond(self, input_tensor):
-        with tf.variable_scope('uncond'):
-            output = slim.fully_connected(input_tensor, 1)
-            return tf.nn.sigmoid(output)
+    def conv3x3(self, input_tensor, filters):
+        with tf.name_scope('conv3x3_block'):
+            output = slim.conv2d(input_tensor, filters, kernel_size=3, stride=1, padding='same')
+            output = slim.batch_norm(output)
+            output = tf.nn.leaky_relu(output)
+            return output
 
-    def cond(self, input_tensor, labels):
-        with tf.variable_scope('cond'):
-            output = tf.concat([input_tensor, labels], -1)
-            output   = slim.fully_connected(output, self.num_classes)
-            return tf.nn.sigmoid(output)
+    def downsample(self, input_tensor, filters):
+        with tf.name_scope('downsample'):
+            output = slim.conv2d(input_tensor, filters, kernel_size=4, stride=2, padding='same', biases_initializer=None)
+            output = slim.batch_norm(output)
+            output = tf.nn.leaky_relu(output)
 
-    def encode_x16(self, input_tensor):
+            return output
+
+    def logits(self, input_tensor):
+        with tf.variable_scope('logits'):
+            output = slim.conv2d(input_tensor, 1, kernel_size=4, stride=4, padding='same')
+            output = tf.nn.sigmoid(output)
+            return tf.reshape(output, [-1])
+
+    def add_noise(self, output):
+        with tf.name_scope('noise'):
+            noise  = tf.random_normal(tf.shape(output), stddev=0.02, dtype=tf.float32)
+            output = output + noise
+            return output
+
+    def encode_x16(self, output, add_noise=False):
         with tf.name_scope('encode_x16'):
             with slim.arg_scope([slim.conv2d], kernel_size=4, stride=2, padding='same'):
-                output = slim.conv2d(input_tensor, 64)
+                output = self.add_noise(output)
+
+                output = slim.conv2d(output, 64)
                 output = tf.nn.leaky_relu(output)
 
                 output = slim.conv2d(output, 128)
