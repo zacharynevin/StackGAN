@@ -74,25 +74,25 @@ def model_fn(features, labels, mode, params):
 
                 with tf.variable_scope('G1'):
                     L_G1  = losses.G_loss(D_G1)
-                    L_G1 += losses.colour_consistency_regularization(G1, G0)
+                    L_G1 += losses.colour_consistency_regularization(G1, G0, data_format=data_format)
 
                 with tf.variable_scope('G2'):
                     L_G2  = losses.G_loss(D_G2)
-                    L_G2 += losses.colour_consistency_regularization(G2, G1)
+                    L_G2 += losses.colour_consistency_regularization(G2, G1, data_format=data_format)
 
                 with tf.variable_scope('D0'):
                     L_D0   = losses.D_loss(D_R0, D_G0)
-                    L_D0_W = losses.wasserstein(R0, G0, discriminator.D0, D0_scope)
+                    L_D0_W = losses.wasserstein_loss(R0, G0, discriminator.D0, D0_scope)
                     L_D0  += L_D0_W
 
                 with tf.variable_scope('D1'):
                     L_D1   = losses.D_loss(D_R1, D_G1)
-                    L_D1_W = losses.wasserstein(R1, G1, discriminator.D1, D1_scope)
+                    L_D1_W = losses.wasserstein_loss(R1, G1, discriminator.D1, D1_scope)
                     L_D1  += L_D1_W
 
                 with tf.variable_scope('D2'):
                     L_D2   = losses.D_loss(D_R2, D_G2)
-                    L_D2_W = losses.wasserstein(R2, G2, discriminator.D2, D2_scope)
+                    L_D2_W = losses.wasserstein_loss(R2, G2, discriminator.D2, D2_scope)
                     L_D2  += L_D2_W
 
                 with tf.variable_scope('G'):
@@ -100,41 +100,39 @@ def model_fn(features, labels, mode, params):
 
         if mode == ModeKeys.TRAIN:
             with tf.variable_scope('optimizers'):
-                trainable_vars = tf.trainable_variables()
-                G_vars  = [var for var in trainable_vars if 'generator' in var.name]
-                D0_vars = [var for var in trainable_vars if 'discriminator/D0' in var.name]
-                D1_vars = [var for var in trainable_vars if 'discriminator/D1' in var.name]
-                D2_vars = [var for var in trainable_vars if 'discriminator/D2' in var.name]
+                with tf.control_dependencies([tf.assign_add(global_step, 1)]):
+                    trainable_vars = tf.trainable_variables()
+                    G_vars  = [var for var in trainable_vars if 'generator' in var.name]
+                    D0_vars = [var for var in trainable_vars if 'discriminator/D0' in var.name]
+                    D1_vars = [var for var in trainable_vars if 'discriminator/D1' in var.name]
+                    D2_vars = [var for var in trainable_vars if 'discriminator/D2' in var.name]
 
-                D0_train = create_train_op(L_D0,
-                                           global_step=D0_global_step,
-                                           learning_rate=D_lr,
-                                           var_list=D0_vars,
-                                           use_tpu=use_tpu)
+                    D0_train = create_train_op(L_D0,
+                                               global_step=D0_global_step,
+                                               learning_rate=D_lr,
+                                               var_list=D0_vars,
+                                               use_tpu=use_tpu)
 
-                D1_train = create_train_op(L_D1,
-                                           global_step=D1_global_step,
-                                           learning_rate=D_lr,
-                                           var_list=D1_vars,
-                                           use_tpu=use_tpu)
+                    D1_train = create_train_op(L_D1,
+                                               global_step=D1_global_step,
+                                               learning_rate=D_lr,
+                                               var_list=D1_vars,
+                                               use_tpu=use_tpu)
 
-                D2_train = create_train_op(L_D2,
-                                           global_step=D2_global_step,
-                                           learning_rate=D_lr,
-                                           var_list=D2_vars,
-                                           use_tpu=use_tpu)
+                    D2_train = create_train_op(L_D2,
+                                               global_step=D2_global_step,
+                                               learning_rate=D_lr,
+                                               var_list=D2_vars,
+                                               use_tpu=use_tpu)
 
-                with tf.control_dependencies([D2_train, D1_train, D0_train]):
-                    G_train = create_train_op(L_G,
-                                              global_step=G_global_step,
-                                              learning_rate=G_lr,
-                                              var_list=G_vars,
-                                              use_tpu=use_tpu)
+                    with tf.control_dependencies([D2_train, D1_train, D0_train]):
+                        G_train = create_train_op(L_G,
+                                                  global_step=G_global_step,
+                                                  learning_rate=G_lr,
+                                                  var_list=G_vars,
+                                                  use_tpu=use_tpu)
 
-                train_op = tf.group(G_train, D2_train, D1_train, D0_train)
-
-                with tf.control_dependencies([train_op]):
-                    tf.assign_add(global_step, 1)
+                    train_op = tf.group(G_train, D2_train, D1_train, D0_train)
 
         loss = L_G
 
