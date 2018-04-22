@@ -255,7 +255,7 @@ def get_dataset(params, mode):
 
     R0, R1, R2 = iterator.get_next()
 
-    z = tf.random_normal([batch_size, z_dim], seed=seed)
+    z = tf.random_normal([batch_size, z_dim])
 
     features = {
         'R0': R0,

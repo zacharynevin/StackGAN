@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 import tensorflow.contrib.slim as slim
 from tensorflow.python.ops import variable_scope
+from src.model.helpers import *
 
 class StackGANGenerator():
     def __init__(self, data_format):
@@ -160,11 +161,11 @@ class StackGANGenerator():
 
         with tf.name_scope('resize'):
             if self.data_format == 'NCHW':
-                net = tf.transpose(net, [0, 2, 3, 1])
+                net = nchw_to_nhwc(net)
 
             net  = tf.image.resize_nearest_neighbor(net, (height, width))
 
             if self.data_format == 'NCHW':
-                net = tf.transpose(net, [0, 3, 1, 2])
+                net = nhwc_to_nchw(net)
 
             return net

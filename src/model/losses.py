@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+from src.model.helpers import *
 
 def G_loss(G_logits):
     return -tf.reduce_mean(tf.log(G_logits))
@@ -17,6 +18,8 @@ def true_labels(labels):
 
 def interpolates(real_batch, fake_batch):
     with tf.name_scope('interpolates'):
+        real_batch = slim.flatten(real_batch)
+        fake_batch = slim.flatten(fake_batch)
         alpha = tf.random_uniform([tf.shape(real_batch)[0], 1], minval=0., maxval=1.)
         differences  = fake_batch - real_batch
         return real_batch + (alpha*differences)
@@ -24,7 +27,6 @@ def interpolates(real_batch, fake_batch):
 def lambda_gradient_penalty(logits, diff):
     with tf.name_scope('lambda_gradient_penalty'):
         gradients = tf.gradients(logits, [diff])[0]
-        gradients = slim.flatten(gradients)
         slopes    = tf.sqrt(tf.reduce_sum(tf.square(gradients), reduction_indices=[1]))
         gradient_penalty = tf.reduce_mean((slopes-1.)**2)
 
@@ -35,7 +37,8 @@ def wasserstein_loss(real_batch, fake_batch, discrim_func, discrim_scope):
 
     with tf.name_scope('wasserstein_loss'):
         diff = interpolates(real_batch, fake_batch)
-        interp_logits, _ = discrim_func(diff, discrim_scope)
+        diff_reshaped = tf.reshape(diff, tf.shape(real_batch))
+        interp_logits, _ = discrim_func(diff_reshaped, discrim_scope)
 
         return lambda_gradient_penalty(interp_logits, diff)
 
@@ -63,8 +66,8 @@ def colour_consistency_regularization(G1, G0, data_format):
         alpha    = 50.0
 
         if data_format == 'NHWC':
-            G0 = tf.transpose(G0, [0, 3, 1, 2])
-            G1 = tf.transpose(G1, [0, 3, 1, 2])
+            G0 = nhwc_to_nchw(G0)
+            G1 = nhwc_to_nchw(G1)
 
         mu_si1_j, G0_mu, G0_pixels = image_mean(G0)
         mu_si_j, G1_mu, G1_pixels  = image_mean(G1)
