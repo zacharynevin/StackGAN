@@ -274,7 +274,7 @@ def create_train_op(loss, learning_rate, var_list, global_step, use_tpu=False):
 
     optimizer = tf.train.AdamOptimizer(learning_rate=exp_learning_rate,
                                        beta1=0.5,
-                                       beta2=0.9)
+                                       beta2=0.999)
 
     if use_tpu:
         optimizer = tpu.CrossShardOptimizer(optimizer)

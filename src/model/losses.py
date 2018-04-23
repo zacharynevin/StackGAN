@@ -1,9 +1,9 @@
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
-from src.model.helpers import *
+import src.model.layers as layers
 
 def G_loss(G_logits):
-    return -tf.reduce_mean(tf.log(G_logits))
+    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=G_logits, labels=tf.ones_like(G_logits)))
 
 def D_loss(D_logits, G_logits):
     output  = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_logits, labels=true_labels(D_logits)))
@@ -66,8 +66,8 @@ def colour_consistency_regularization(G1, G0, data_format):
         alpha    = 50.0
 
         if data_format == 'NHWC':
-            G0 = nhwc_to_nchw(G0)
-            G1 = nhwc_to_nchw(G1)
+            G0 = layers.nhwc_to_nchw(G0)
+            G1 = layers.nhwc_to_nchw(G1)
 
         mu_si1_j, G0_mu, G0_pixels = image_mean(G0)
         mu_si_j, G1_mu, G1_pixels  = image_mean(G1)
